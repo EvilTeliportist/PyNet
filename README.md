@@ -6,7 +6,7 @@
 #### The code is written not for optimization, but for ease of reading and understanding. The primary focus of PyNet is not to be used in large scale applications or data analysis, but for beginners to play around with, recognize the potential of neural networks, and explore the code to deepen their knowledge of python
 
 ## Installation Instructions
-#### Download the pynet.py file and move it into the folder which holds all of your python packages. You can now implement pynet like any other python package. 
+#### Download the main.py file and move it into the folder which holds all of your python packages. You can now implement pynet like any other python package. 
 
 ### IMPORTANT: PyNet does not yet support bias in the layers yet.
 
