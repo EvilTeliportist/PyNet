@@ -71,7 +71,7 @@ class NeuralNetwork:
         #initialize array to hold values "delta weights", or change in weights
         dw = []
 
-        #loop through each layer and calculate the error in that layer based on the layer after it, hence "back"-propegation
+        #loop through each layer and calculate the error in that layer based on the layer after it, hence "back"-propagation
         for i in range(len(self.values)-1):
             delta = np.dot(self.values[-(i+2)].T, error_in_layer)
             dw.append(delta)
@@ -108,7 +108,6 @@ class NeuralNetwork:
 
     def set_weights(self,  x):
         self.weights = x
-        #
 
     def print_weights(self):
         for i in range(len(self.weights)):
