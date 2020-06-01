@@ -1,115 +1,74 @@
-import numpy as np
-import os
-
-def sigmoid(x):
-    return 1.0/(1+ np.exp(-x))
-
-def sigmoid_derivative(x):
-    return x * (1.0 - x)
-
-class NeuralNetwork:
-    def __init__(self, inputArray, answers, hidden, num_hidden_layers,  learn):
-        self.input = inputArray
-        self.answers = answers
-
-        #necissary
-        self.output = np.zeros(self.answers.shape)
-        self.learn = learn
-        self.hidden = hidden
-        self.num_hidden_layers = num_hidden_layers
-        self.NumOutputs = len(self.answers[0]) 
-
-        #settings
-        self.print_while_training = False
-        self.percet_error = 0
-        self.prompt_write = False
-
-        self.make_weights()
+import pynet
+import os, numpy
+import yfinance as yf
+import matplotlib.pyplot as plt
 
 
-    def make_weights(self):
-        
-        #initialize weights array
-        self.weights = []
-
-        #add a random array for the input --> hidden layer weights
-        self.weights.append(np.random.rand(len(self.input[0]), self.hidden))
-
-        #add all the weights in between the hidden layers
-        for i in range(self.num_hidden_layers-1):
-            self.weights.append(np.random.rand(self.hidden, self.hidden))
-
-        #add weights from hidden layer --> output
-        self.weights.append(np.random.rand(self.hidden, self.NumOutputs))
-
-        #make random bias array including output bias
-        self.bias = np.random.rand(self.num_hidden_layers+1)
-
-    def feedforward(self):
-        #initalize blank array to hold all node values
-        self.values = []
-
-        #add input to the values array
-        self.values.append(self.input)
-
-        #calculate values for each layer of nodes
-        for i in range(self.num_hidden_layers +1):
-            self.values.append(sigmoid(np.dot(self.values[-1], self.weights[i])+self.bias[i]))
-        
-        #set output to values of last layer
-        self.output = self.values[-1]
-
-        #toggle printing while training
-        if self.print_while_training:
-            print(self.output)
-
-    def backpropagate(self):
-        
-        #initalize the error in the last layer
-        error_in_layer = 2*(self.answers - self.output)*sigmoid_derivative(self.values[-1])
-
-        #initialize array to hold values "delta weights", or change in weights
-        dw = []
-
-        #loop through each layer and calculate the error in that layer based on the layer after it, hence "back"-propagation
-        for i in range(len(self.values)-1):
-            delta = np.dot(self.values[-(i+2)].T, error_in_layer)
-            dw.append(delta)
-            error_in_layer = np.dot(error_in_layer, self.weights[-(i+1)].T) * sigmoid_derivative(self.values[-(i+2)])
-
-        #change weights of each layer by dw (calculated for each layer)
-        for i in range(len(dw)):
-            self.weights[i] += dw[-(i+1)]
+#get initial data
+ticker = yf.Ticker('MSFt')
+raw = [i[1] for i in ticker.history(period='max').to_numpy()]
 
 
-    def train(self, x):
-       
-        #train function that feedsforward and backpropegates in one function call
-        for i in range(x):
-            self.feedforward()
-            self.backpropagate()
-            
-        #calculate percent error and print it
-        self.percet_error = (self.answers - self.output)/np.amax(self.answers)
-        print('Largest Percent Error In Last Set Of Output Data: ' + str(np.round(np.amax(self.percet_error), 5))+'%')
-        
-        #setting to let user write weights to .txt
-        if self.prompt_write:
-            x = input('Write? (y/n)')
-            if x == 'y':
-                y = input('Input Filename')
-                self.write_weights(y)
+# split raw into sets of 5 days to train the network with
+c = 0
+split_raw = []
+temp = []
+for i in raw:
+    if c < 5:
+        temp.append(i)
+        c += 1
+    else:
+        split_raw.append(temp)
+        temp = []
+        c = 0
 
 
-                def write_weights(self, file_name):
-        f = open(file_name, 'a')
-        s = str(self.weights)
-        f.write(s)
+# select only the second half of the data to get rid of very low prices that have large
+# percentage based variation (ex $.06 and $.07 vs $22.50 and $22.51)
+split_raw = split_raw[len(split_raw)//2:]
 
-    def set_weights(self,  x):
-        self.weights = x
 
-    def print_weights(self):
-        for i in range(len(self.weights)):
-            print('Weights from layer ' + str(i) + ' to layer ' + str(i+1) + ':')
-            print(self.weights[i])
+# normalize each set of data, preparing for input into the neural network
+split_raw = [(set/numpy.linalg.norm(numpy.asarray(set))).tolist() for set in split_raw]
+
+
+# create an array of expected outputs to train the network with
+# expected outputs of 1 represent a good buy, while outputs of
+# 0 represent a bad buy
+exp_out = []
+for set in split_raw:
+    if set[-1] > set[-2]:
+        exp_out.append([1])
+    else:
+        exp_out.append([0])
+
+test_out = numpy.array(exp_out[len(exp_out)//2:])
+exp_out = numpy.array(exp_out[:len(exp_out)//2])
+
+
+# remove the last datapoint from each set because they are acting
+# as the "answers" and we should not train the network on data that
+# we wouldn't necissarily have access to during implementation
+split_raw = [set[:-1] for set in split_raw]
+split_raw = numpy.array(split_raw)
+
+# creates a testing and training dataset by chopping the data in half
+training = split_raw[:len(split_raw)//2]
+testing = split_raw[len(split_raw)//2:]
+
+
+# initializing neural network class
+network = pynet.NeuralNetwork(training, exp_out, 2, 2, .0001)
+network.print_while_training = True;
+
+# train
+network.train(1000)
+
+# show a plot of error over time
+plt.plot(network.all_error)
+plt.show()
+
+# test by inputting the test set into
+test_output = network.test(testing)
+average_test_error = sum(test_output - test_out)/len(test_out)
+print("Average Test Error: " + str(round(100*average_test_error[0], 4)) + "%")
